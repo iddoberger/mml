@@ -1,7 +1,8 @@
-from collections import OrderedDict
+from collections import OrderedDict,defaultdict
 from math import log2, ceil
 from io import StringIO
 from copy import copy
+
 
 from unittest.mock import MagicMock, Mock
 
@@ -13,7 +14,7 @@ alphabet_list = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'k', 'l', 'm', 'n'
 words_list = ['a', 'adore', 'all', 'beautiful', 'big', 'bit', 'chases', 'dog', 'handsome', 'like', 'mouse', 'nice', 'professor', 'some', 'student', 'taught', 'the', 'thin', 'thoughtful', 'ugly']
 states_list = ["q0", "q1", "q2", "q3", "q4", "qf"]
 
-mock_transition_dict = {'q0': ['q2'], 'q2': ['q1', 'q4'], 'q4': ['q1'], 'q1': ['qf'], 'q1': ['q3'], 'q3': ['q2'], 'qf':[]}
+mock_transition_dict = {'q0': ['q2'], 'q2': ['q1', 'q4'], 'q4': ['q1'], 'q1': ['qf'], 'q1': ['q3'], 'q3': ['q2']}
 
 mock_emission_dict = {'q2': ['a', 'all', 'some', 'the'],
                       'q4': ['beautiful', 'big', 'handsome', 'nice', 'thin', 'thoughtful', 'ugly'],
@@ -21,10 +22,10 @@ mock_emission_dict = {'q2': ['a', 'all', 'some', 'the'],
                       'q3': ['adore', 'bit', 'chases', 'like', 'taught']}
 
 def mock_transition(arg):
-    return mock_transition_dict[arg]
+    return mock_transition_dict.get(arg, [])
 
 def mock_emission(arg):
-    return mock_emission_dict[arg]
+    return mock_emission_dict.get(arg, default=[])
 
 hmm = HHM()
 
@@ -115,9 +116,10 @@ def encode_transitions(hmm, states_list):
     states_enumeration, states_symbol_length = get_binary_enumeration(states_list)
     print('0'*states_symbol_length + '1', end="", file=str_io)
     for state in states_list:
-        print(states_enumeration[state], end="", file=str_io)
-        for outgoing_state in hmm.get_outgoing_states(state):
-            print(states_enumeration[outgoing_state], end="", file=str_io)
+        if hmm.get_outgoing_states(state):  # print only states with the have outgoing link i.e no qf
+            print(states_enumeration[state], end="", file=str_io)
+            for outgoing_state in hmm.get_outgoing_states(state):
+                print(states_enumeration[outgoing_state], end="", file=str_io)
         print(states_enumeration["#"], end="", file=str_io)
 
     print(states_enumeration["#"], end="", file=str_io)
@@ -129,16 +131,46 @@ def decode_transitions(encoded_hypothesis_string):
     number_of_repr_bits = first_one_index
     encoded_hypothesis_string = encoded_hypothesis_string[first_one_index+1:]
 
-    lexicon_string = ''
+    transitions_string = ''
     i = 0
     while True:
         bits = encoded_hypothesis_string[i:i+number_of_repr_bits]
         i += number_of_repr_bits
-        lexicon_string += inverse_states_enumeration[bits]
-        if lexicon_string.endswith("##"):
+        transitions_string += inverse_states_enumeration[bits]
+        if transitions_string.endswith("##"):
             break
 
-    return lexicon_string, encoded_hypothesis_string[i:]
+    return transitions_string, encoded_hypothesis_string[i:]
+
+def decode_transitions_to_dict(encoded_hypothesis_string):
+    transitions_dict = dict()
+    first_one_index = encoded_hypothesis_string.index('1')
+    number_of_repr_bits = first_one_index
+    encoded_hypothesis_string = encoded_hypothesis_string[first_one_index+1:]
+    transitions_lists = []
+    i = 0
+    while True:
+        bits = encoded_hypothesis_string[i:i+number_of_repr_bits]
+        i += number_of_repr_bits
+        transitions_lists.append(inverse_states_enumeration[bits])
+        if transitions_lists[-2:] == ['#', '#']:
+            break
+
+    temp_list = []
+    transitions_lists = transitions_lists[:-1]
+    while '#' in transitions_lists:
+        delimiter_index = transitions_lists.index('#')
+        temp_list.append(transitions_lists[:delimiter_index])
+        transitions_lists = transitions_lists[delimiter_index+1:]
+
+    transitions_lists = temp_list
+
+    for transitions in transitions_lists:
+        transitions_dict[transitions[0]] = list()
+        transitions_dict[transitions[0]].extend(transitions[1:])
+
+    return transitions_dict, encoded_hypothesis_string[i:]
+
 
 def encode_transitions_length():
     pass
@@ -147,7 +179,7 @@ def encode_transitions_length():
 #print(encode_transitions(hmm, states_list))
 encoded_transitions_string = encode_transitions(hmm, states_list)
 
-assert decode_transitions(encoded_transitions_string)[0] == "q0q2#q1q3#q2q1q4#q3q2#q4q1#qf##"
+assert decode_transitions(encoded_transitions_string)[0] == "q0q2#q1q3#q2q1q4#q3q2#q4q1##"
 
 def transitions_dict_from_transition_string(transition_string):
     transitions_dict = dict()
@@ -157,14 +189,15 @@ def transitions_dict_from_transition_string(transition_string):
         state = "q{}".format(transition[0])
         transitions_dict[state] = list()
         for state_number in transition[1:]:
-            transitions_dict[state].append( "q{}".format(state_number))
+            transitions_dict[state].append("q{}".format(state_number))
 
     return transitions_dict
 
 
 print(len(encode_transitions(hmm, states_list)))
+print(decode_transitions_to_dict(encoded_transitions_string)[0])
 
-assert transitions_dict_from_transition_string("q0q2#q1q3#q2q1q4#q3q2#q4q1#qf##") == mock_transition_dict
+assert transitions_dict_from_transition_string("q0q2#q1q3#q2q1q4#q3q2#q4q1##") == mock_transition_dict
 
 
 
@@ -176,4 +209,18 @@ viterbi_path = ['q0', 'q2', 'q4', 'q1', 'qf']
 seg = ['a', 'thin', 'dog']
 
 combined_list = viterbi_path[:1] + [x for t in zip(viterbi_path[1:-1], seg) for x in t] + viterbi_path[-1:]
+
+# list_with_delimiter = ['q0', 'q2', '#', 'q1', 'q3', '#', 'q2', 'q1', 'q4', '#', 'q3', 'q2', '#', 'q4', 'q1', '#', '#']
+#
+# list_with_delimiter = list_with_delimiter[:-1]
+#
+# list_of_lists = []
+#
+# while '#' in list_with_delimiter:
+#     delimiter_index = list_with_delimiter.index('#')
+#     list_of_lists.append(list_with_delimiter[:delimiter_index])
+#     list_with_delimiter = list_with_delimiter[delimiter_index+1:]
+#
+# print(list_of_lists)
+#
 
