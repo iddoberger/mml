@@ -109,8 +109,6 @@ assert len(encoded_lexicon_string) == encode_lexicon_length
 assert decode_lexicon(encoded_lexicon_string)[0] == "a#adore#all#beautiful#big#bit#chases#dog#handsome#like#mouse#nice#professor#some#student#taught#the#thin#thoughtful#ugly##"
 
 
-
-
 def encode_transitions(hmm, states_list):
     str_io = StringIO()
     states_enumeration, states_symbol_length = get_binary_enumeration(states_list)
@@ -120,29 +118,14 @@ def encode_transitions(hmm, states_list):
             print(states_enumeration[state], end="", file=str_io)
             for outgoing_state in hmm.get_outgoing_states(state):
                 print(states_enumeration[outgoing_state], end="", file=str_io)
-        print(states_enumeration["#"], end="", file=str_io)
+            print(states_enumeration["#"], end="", file=str_io)
 
     print(states_enumeration["#"], end="", file=str_io)
     return str_io.getvalue()
 
 
+
 def decode_transitions(encoded_hypothesis_string):
-    first_one_index = encoded_hypothesis_string.index('1')
-    number_of_repr_bits = first_one_index
-    encoded_hypothesis_string = encoded_hypothesis_string[first_one_index+1:]
-
-    transitions_string = ''
-    i = 0
-    while True:
-        bits = encoded_hypothesis_string[i:i+number_of_repr_bits]
-        i += number_of_repr_bits
-        transitions_string += inverse_states_enumeration[bits]
-        if transitions_string.endswith("##"):
-            break
-
-    return transitions_string, encoded_hypothesis_string[i:]
-
-def decode_transitions_to_dict(encoded_hypothesis_string):
     transitions_dict = dict()
     first_one_index = encoded_hypothesis_string.index('1')
     number_of_repr_bits = first_one_index
@@ -172,34 +155,34 @@ def decode_transitions_to_dict(encoded_hypothesis_string):
     return transitions_dict, encoded_hypothesis_string[i:]
 
 
-def encode_transitions_length():
-    pass
 
 
-#print(encode_transitions(hmm, states_list))
+def encode_transitions_length(hmm, states_list):
+    state_symbols_in_strings = 0
+    states_with_outgoing = 0
+    for state in states_list:
+        if len(hmm.get_outgoing_states(state)) > 0:
+            state_symbols_in_strings += len(hmm.get_outgoing_states(state)) + 1  # +1 indicate the origin state
+            states_with_outgoing += 1
+
+    delimiter_usage = states_symbol_length * (states_with_outgoing + 1)  # +1 indicate the final extra delimiter
+    states_usage = state_symbols_in_strings * states_symbol_length
+    num_bits = states_symbol_length + 1
+    transition_length = num_bits + delimiter_usage + states_usage
+
+    return transition_length
+
+
 encoded_transitions_string = encode_transitions(hmm, states_list)
 
-assert decode_transitions(encoded_transitions_string)[0] == "q0q2#q1q3#q2q1q4#q3q2#q4q1##"
 
-def transitions_dict_from_transition_string(transition_string):
-    transitions_dict = dict()
-    transitions = transition_string.split('#')[:-2]  # ignore end "##"
-    for transition in transitions:
-        transition = transition.split('q')[1:]
-        state = "q{}".format(transition[0])
-        transitions_dict[state] = list()
-        for state_number in transition[1:]:
-            transitions_dict[state].append("q{}".format(state_number))
-
-    return transitions_dict
+encode_transitions_length = encode_transitions_length(hmm, states_list)
+encoded_transitions_string = encode_transitions(hmm, states_list)
 
 
-print(len(encode_transitions(hmm, states_list)))
-print(decode_transitions_to_dict(encoded_transitions_string)[0])
-
-assert transitions_dict_from_transition_string("q0q2#q1q3#q2q1q4#q3q2#q4q1##") == mock_transition_dict
-
-
+assert encode_transitions_length == 55
+assert len(encoded_transitions_string) == encode_transitions_length
+assert decode_transitions(encoded_transitions_string)[0] == mock_transition_dict
 
 
 
@@ -210,17 +193,25 @@ seg = ['a', 'thin', 'dog']
 
 combined_list = viterbi_path[:1] + [x for t in zip(viterbi_path[1:-1], seg) for x in t] + viterbi_path[-1:]
 
-# list_with_delimiter = ['q0', 'q2', '#', 'q1', 'q3', '#', 'q2', 'q1', 'q4', '#', 'q3', 'q2', '#', 'q4', 'q1', '#', '#']
-#
-# list_with_delimiter = list_with_delimiter[:-1]
-#
-# list_of_lists = []
-#
-# while '#' in list_with_delimiter:
-#     delimiter_index = list_with_delimiter.index('#')
-#     list_of_lists.append(list_with_delimiter[:delimiter_index])
-#     list_with_delimiter = list_with_delimiter[delimiter_index+1:]
-#
-# print(list_of_lists)
-#
 
+
+
+
+
+#########
+
+def decode_transitions_to_raw_string(encoded_hypothesis_string):
+    first_one_index = encoded_hypothesis_string.index('1')
+    number_of_repr_bits = first_one_index
+    encoded_hypothesis_string = encoded_hypothesis_string[first_one_index+1:]
+
+    transitions_string = ''
+    i = 0
+    while True:
+        bits = encoded_hypothesis_string[i:i+number_of_repr_bits]
+        i += number_of_repr_bits
+        transitions_string += inverse_states_enumeration[bits]
+        if transitions_string.endswith("##"):
+            break
+
+    return transitions_string, encoded_hypothesis_string[i:]
