@@ -132,8 +132,6 @@ assert decode_lexicon(encoded_lexicon_string) == words_list
 ##### Syntactic Component #####
 
 
-def get__encoded_syntactic_component_length():
-    pass
 
 def encode_syntactic_component(syntactic_component, states_list, words_list):
     str_io = StringIO()
@@ -149,9 +147,82 @@ def encode_syntactic_component(syntactic_component, states_list, words_list):
 
     print(states_enumeration["#"], end="", file=str_io)
     #emissions
+    words_enumeration, words_symbol_length = get_binary_enumeration(words_list)
+    for state in states_list:
+        if syntactic_component.get_emissions(state):  # print only states with emissions
+            print(states_enumeration[state], end="", file=str_io)
+            for emission in syntactic_component.get_emissions(state):
+                print(words_enumeration[emission], end="", file=str_io)
+            print(words_enumeration["#"], end="", file=str_io)
+    print(words_enumeration["#"], end="", file=str_io)
+    return str_io.getvalue()
+
+
+def decode_syntactic_component(encoded_syntactic_component_string, states_list, words_list):
+    first_one_index = encoded_syntactic_component_string.index('1')
+    number_of_repr_bits = first_one_index
+    encoded_transitions_string = encoded_syntactic_component_string[first_one_index+1:]
+    #transitions
+    transitions_dict = dict()
+    transitions_lists = []
+    i = 0
+    while True:
+        bits = encoded_transitions_string[i:i+number_of_repr_bits]
+        i += number_of_repr_bits
+        transitions_lists.append(inverse_states_enumeration[bits])
+        if transitions_lists[-2:] == ['#', '#']:
+            i += number_of_repr_bits
+            break
+
+    temp_list = []
+    transitions_lists = transitions_lists[:-1]
+    while '#' in transitions_lists:
+        delimiter_index = transitions_lists.index('#')
+        temp_list.append(transitions_lists[:delimiter_index])
+        transitions_lists = transitions_lists[delimiter_index+1:]
+
+    transitions_lists = temp_list
+
+    for transitions in transitions_lists:
+        transitions_dict[transitions[0]] = list()
+        transitions_dict[transitions[0]].extend(transitions[1:])
+
+    encoded_syntactic_component_string = encoded_syntactic_component_string[i+1:]
+
+    #emissons
+    emissions_dict = dict()
+    i = 0
+    while True:
+        state_bits = encoded_syntactic_component_string[i:i+states_symbol_length]
+        i += states_symbol_length
+        current_state = inverse_states_enumeration[state_bits]
+        emissions_dict[current_state] = list()
+        while True:
+            word_bits = encoded_syntactic_component_string[i:i+words_symbol_length]
+            i += words_symbol_length
+            if inverse_words_enumeration[word_bits] == '#':
+                break
+            else:
+                current_word = inverse_words_enumeration[word_bits]
+                emissions_dict[current_state].append(current_word)
+
+        word_bits = encoded_syntactic_component_string[i:i+words_symbol_length]
+        if inverse_words_enumeration[word_bits] == '#':
+            break
+
+    return transitions_dict, emissions_dict
 
 
 
+def get_encoded_syntactic_component_length():
+    return 192
+
+
+encoded_syntactic_component_string = encode_syntactic_component(syntactic_component, states_list, words_list)
+encoded_syntactic_component_length = get_encoded_syntactic_component_length()
+assert encoded_syntactic_component_length == 192
+assert len(encoded_syntactic_component_string) == encoded_syntactic_component_length
+print(decode_syntactic_component(encoded_syntactic_component_string, states_list, words_list))
 
 
 def encode_transitions(syntactic_component, states_list):     # with 0*1 prefix, ## ending
@@ -266,7 +337,7 @@ def get_encoded_emissions_length(syntactic_component, states_list, words_list):
 
 encoded_emissions_string = encode_emissions(syntactic_component, states_list, words_list)
 encode_emissions_length = get_encoded_emissions_length(syntactic_component, states_list, words_list)
-
+print(encoded_emissions_string)
 
 assert encode_emissions_length == 137
 assert len(encoded_emissions_string) == encode_emissions_length
