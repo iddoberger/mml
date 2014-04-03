@@ -42,15 +42,11 @@ def get_binary_by_item(list_, item):
 def get_item_by_binary(list_, binary):
     return list_[int(binary, 2)]
 
-
-
-
 big_list = [str(x) for x in range(20)]
 
 
 def get_binary_enumeration(list_):
     list_ = copy(list_)
-    list_.sort()  # sort for good measure (the list can arrive sorted already
     list_.append("#")
     symbol_length = get_symbol_length(list_)
     enumeration = OrderedDict()
@@ -74,15 +70,19 @@ inverse_alphabet_enumeration = {v: k for k, v in alphabet_enumeration.items()}
 assert alphabet_enumeration["a"] == "00000"
 assert inverse_alphabet_enumeration["10100"] == "#"
 
-words_enumeration, words_symbol_length = get_binary_enumeration(words_list)
-inverse_words_enumeration = {v: k for k, v in words_enumeration.items()}
-assert words_enumeration["adore"] == "00001"
-assert inverse_words_enumeration["10100"] == "#"
 
 states_enumeration, states_symbol_length = get_binary_enumeration(states_list)
 inverse_states_enumeration = {v: k for k, v in states_enumeration.items()}
 assert states_enumeration["q0"] == "000"
 assert inverse_states_enumeration["110"] == "#"
+
+
+states_and_words_enumeration, states_and_words_symbol_length = get_binary_enumeration(states_list+words_list)
+inverse_states_and_words_enumeration = {v: k for k, v in states_and_words_enumeration.items()}
+
+assert states_and_words_enumeration["q2"] == "00010"
+assert states_and_words_enumeration["adore"] == "00111"
+assert inverse_states_and_words_enumeration["11010"] == "#"
 
 def encode_lexicon(alphabet_list, words_list):
     str_io = StringIO()
@@ -110,7 +110,7 @@ def decode_lexicon(encoded_hypothesis_string):
         if lexicon_string.endswith("##"):
             break
 
-    return lexicon_string, encoded_hypothesis_string[i:]
+    return lexicon_string, encoded_hypothesis_string[i:]   #TODO return list of words
 
 def get_encoded_lexicon_length(alphabet_list, words_list):
     alphabet_symbol_length = get_binary_enumeration(alphabet_list)[1]
@@ -122,6 +122,7 @@ def get_encoded_lexicon_length(alphabet_list, words_list):
 
 encoded_lexicon_string = encode_lexicon(alphabet_list, words_list)
 encode_lexicon_length = get_encoded_lexicon_length(alphabet_list, words_list)
+
 
 assert encode_lexicon_length == 616
 assert len(encoded_lexicon_string) == encode_lexicon_length
@@ -196,8 +197,8 @@ assert len(encoded_transitions_string) == encode_transitions_length
 assert decode_transitions(encoded_transitions_string)[0] == mock_transition_dict
 
 
-def encode_emissions(hmm, states_list, words_list):
-    str_io = StringIO()
+def encode_emissions_old(hmm, states_list, words_list):
+    str_io = StringIO()  # TODO sould not work
     states_enumeration, states_symbol_length = get_binary_enumeration(states_list)
     words_enumeration, words_symbol_length = get_binary_enumeration(words_list)
     print('0'*words_symbol_length + '1', end="", file=str_io)
@@ -213,28 +214,28 @@ def encode_emissions(hmm, states_list, words_list):
 
 
 
-def decode_emissions(encoded_hypothesis_string):
-    emissions_dict = dict()
-    first_one_index = encoded_hypothesis_string.index('1')
-    words_number_of_repr_bits = first_one_index
-    encoded_hypothesis_string = encoded_hypothesis_string[first_one_index+1:]
-    i = 0
-    while True:
-        state_bits = encoded_hypothesis_string[i:i+states_symbol_length]
-        i += states_symbol_length
-        print(inverse_states_enumeration[state_bits])
-        while True:
-            word_bits = encoded_hypothesis_string[i:i+words_symbol_length]
-            i += words_symbol_length
-            if inverse_words_enumeration[word_bits] == '#':
-                break
-            else:
-                print(inverse_words_enumeration[word_bits])
-
-         # TODO finish me
-
-
-        break
+# def decode_emissions_old(encoded_hypothesis_string):
+#     emissions_dict = dict()
+#     first_one_index = encoded_hypothesis_string.index('1')
+#     words_number_of_repr_bits = first_one_index
+#     encoded_hypothesis_string = encoded_hypothesis_string[first_one_index+1:]
+#     i = 0
+#     while True:
+#         state_bits = encoded_hypothesis_string[i:i+states_symbol_length]
+#         i += states_symbol_length
+#         print(inverse_states_enumeration[state_bits])
+#         while True:
+#             word_bits = encoded_hypothesis_string[i:i+words_symbol_length]
+#             i += words_symbol_length
+#             if inverse_words_enumeration[word_bits] == '#':
+#                 break
+#             else:
+#                 print(inverse_words_enumeration[word_bits])
+#
+#          # TODO finish me
+#
+#
+#         break
 
 
     return emissions_dict, encoded_hypothesis_string[i:]
@@ -266,7 +267,23 @@ def get_encoded_emissions_length(hmm, states_list, words_list):
     pass
 
 
-# print(encode_emissions(hmm, states_list, words_list))
+def encode_emissions(hmm, states_list, words_list):
+    str_io = StringIO()
+    states_and_words_list = states_list + words_list
+    states_and_words_enumeration, states_and_words_symbol_length = get_binary_enumeration(states_and_words_list)
+    print('0'*states_and_words_symbol_length + '1', end="", file=str_io)
+    for state in states_list:
+        if hmm.get_emissions(state):  # print only states with emissions
+            print(states_and_words_enumeration[state], end="", file=str_io)
+            for emission in hmm.get_emissions(state):
+                print(states_and_words_enumeration[emission], end="", file=str_io)
+            print(states_and_words_enumeration["#"], end="", file=str_io)
+
+    print(states_and_words_enumeration["#"], end="", file=str_io)
+    return str_io.getvalue()
+
+
+
 # # print(encode_emissions_raw(hmm, states_list, words_list))
 #
 # # encode_emissions_length = get_encoded_emissions_length(hmm, states_list, words_list)
@@ -291,7 +308,7 @@ hmm.parse = MagicMock(side_effect=mock_viterbi)
 def encode_data_by_grammar(hmm, data):
     str_io = StringIO()
     for datum in data:
-        viterbi_path, seg = hmm.parse(datum)
+        viterbi_path, segmentation_path = hmm.parse(datum)
         viterbi_index = 0
         seg_index = 0
         while True:
@@ -300,15 +317,13 @@ def encode_data_by_grammar(hmm, data):
             viterbi_index += 1
             next_state = viterbi_path[viterbi_index]
             transition_binary = get_binary_by_item(transition_table, next_state)
-            #print(next_state, end="", file=str_io)
             print(transition_binary, end="", file=str_io)
             if viterbi_index >= len(viterbi_path) - 1:
                 break
             emission_table = hmm.get_emissions(next_state)
-            emission_value = seg[seg_index]
+            emission_value = segmentation_path[seg_index]
             emission_binary = get_binary_by_item(emission_table, emission_value)
             print(emission_binary, end="", file=str_io)
-            #print(emission_value, end="", file=str_io)
             seg_index += 1
 
     return str_io.getvalue()
@@ -340,15 +355,30 @@ def decode_data(encoded_data_string):
     return data
 
 
+
 def get_encoded_data_by_grammar_length(hmm, data):
-    pass
+    data_by_grammar_length = 0
+    for datum in data:
+        viterbi_path, seg = hmm.parse(datum)
+        viterbi_index = 0
+        current_state = viterbi_path[viterbi_index]
+        while True:
+            transition_table = hmm.get_outgoing_states(current_state)
+            data_by_grammar_length += get_symbol_length(transition_table)
+            viterbi_index += 1
+            current_state = viterbi_path[viterbi_index]
+            if viterbi_index >= len(viterbi_path) - 1:
+               break
+            emission_table = hmm.get_emissions(current_state)
+            data_by_grammar_length += get_symbol_length(emission_table)
+
+    return data_by_grammar_length
 
 
-
-print(encode_data_by_grammar(hmm, data))
 encoded_string = encode_data_by_grammar(hmm, data)
-print(decode_data(encoded_string))
-
+assert len(encoded_string) == 22
+assert get_encoded_data_by_grammar_length(hmm, data) == len(encoded_string)
+assert decode_data(encoded_string) == data
 
 
 
