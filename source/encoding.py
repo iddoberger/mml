@@ -221,11 +221,10 @@ assert encode_transitions_length == 55
 assert len(encoded_transitions_string) == encode_transitions_length
 assert decode_transitions(encoded_transitions_string) == mock_transition_dict
 
-def encode_emissions(syntactic_component, states_list, words_list):     # with 0*1 prefix, ## ending
+def encode_emissions(syntactic_component, states_list, words_list):     # no prefix, ## ending
     str_io = StringIO()
     states_enumeration, states_symbol_length = get_binary_enumeration(states_list)
     words_enumeration, words_symbol_length = get_binary_enumeration(words_list)
-    print('0'*words_symbol_length + '1', end="", file=str_io)
     for state in states_list:
         if syntactic_component.get_emissions(state):  # print only states with emissions
             print(states_enumeration[state], end="", file=str_io)
@@ -239,8 +238,6 @@ def encode_emissions(syntactic_component, states_list, words_list):     # with 0
 
 def decode_emissions(encoded_emissions_string):
     emissions_dict = dict()
-    first_one_index = encoded_emissions_string.index('1')
-    encoded_emissions_string = encoded_emissions_string[first_one_index+1:]
     i = 0
     while True:
         state_bits = encoded_emissions_string[i:i+states_symbol_length]
@@ -264,15 +261,14 @@ def decode_emissions(encoded_emissions_string):
 
 def get_encoded_emissions_length(syntactic_component, states_list, words_list):
 
-    return 143
+    return 137
 
 
 encoded_emissions_string = encode_emissions(syntactic_component, states_list, words_list)
 encode_emissions_length = get_encoded_emissions_length(syntactic_component, states_list, words_list)
 
 
-print(len(encoded_emissions_string))
-assert encode_emissions_length == 143
+assert encode_emissions_length == 137
 assert len(encoded_emissions_string) == encode_emissions_length
 assert decode_emissions(encoded_emissions_string) == mock_emission_dict
 
