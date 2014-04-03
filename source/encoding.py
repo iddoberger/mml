@@ -6,6 +6,7 @@ from copy import copy
 
 from unittest.mock import MagicMock, Mock
 
+
 class SyntacticComponent():
     pass
 
@@ -21,8 +22,10 @@ mock_emission_dict = {'q1': ['dog', 'mouse', 'professor', 'student'],
                       'q3': ['adore', 'bit', 'chases', 'like', 'taught'],
                       'q4': ['beautiful', 'big', 'handsome', 'nice', 'thin', 'thoughtful', 'ugly']}
 
+
 def mock_transition(arg):
     return mock_transition_dict.get(arg, [])
+
 
 def mock_emission(arg):
     return mock_emission_dict.get(arg, [])
@@ -34,10 +37,10 @@ syntactic_component.get_outgoing_states = MagicMock(side_effect=mock_transition)
 syntactic_component.get_emissions = MagicMock(side_effect=mock_emission)
 
 
-
 def get_binary_by_item(list_, item):
     symbol_length = get_symbol_length(list_)
     return get_binary_string(list_.index(item), symbol_length)
+
 
 def get_item_by_binary(list_, binary):
     return list_[int(binary, 2)]
@@ -58,6 +61,7 @@ def get_binary_enumeration(list_):
 
 def get_symbol_length(list_):
     return max(1, ceil(log2(len(list_))))   # log2 1 sould be 1 in this case
+
 
 def get_binary_string(number, log_length):
     return str(bin(number))[2:].zfill(log_length)
@@ -114,6 +118,7 @@ def decode_lexicon(encoded_lexicon_string):
     words_list = lexicon_string[:-2].split('#')
     return words_list
 
+
 def get_encoded_lexicon_length(alphabet_symbol_length, words_list):
     delimiter_usage = (len(words_list) + 1) * alphabet_symbol_length
     words_usage = sum([len(word) for word in words_list]) * alphabet_symbol_length
@@ -130,8 +135,6 @@ assert len(encoded_lexicon_string) == encode_lexicon_length
 assert decode_lexicon(encoded_lexicon_string) == words_list
 
 ##### Syntactic Component #####
-
-
 
 def encode_syntactic_component(syntactic_component, states_list, words_list):  # with 0*1 prefix,
     str_io = StringIO()                                                        # double state's # after transitions
@@ -213,7 +216,6 @@ def decode_syntactic_component(encoded_syntactic_component_string):
     return transitions_dict, emissions_dict
 
 
-
 def get_encoded_syntactic_component_length(syntactic_component, states_list, words_symbol_length):
     #transitions
     state_symbols_in_strings = 0
@@ -245,7 +247,6 @@ def get_encoded_syntactic_component_length(syntactic_component, states_list, wor
     encoded_syntactic_component_length = transition_length + emissions_length
 
     return encoded_syntactic_component_length
-
 
 
 encoded_syntactic_component_string = encode_syntactic_component(syntactic_component, states_list, words_list)
