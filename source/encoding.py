@@ -47,7 +47,7 @@ big_list = [str(x) for x in range(20)]
 
 def get_binary_enumeration(list_):
     list_ = copy(list_)
-    list_.append("#")
+    list_.insert(0, "#")
     symbol_length = get_symbol_length(list_)
     enumeration = OrderedDict()
     for i in range(len(list_)):
@@ -67,14 +67,16 @@ assert get_item_by_binary(big_list, "01101") == '13'
 
 alphabet_enumeration, alphabet_symbol_length = get_binary_enumeration(alphabet_list)
 inverse_alphabet_enumeration = {v: k for k, v in alphabet_enumeration.items()}
-assert alphabet_enumeration["a"] == "00000"
-assert inverse_alphabet_enumeration["10100"] == "#"
+assert alphabet_enumeration["a"] == "00001"
+assert alphabet_enumeration["y"] == "10100"
+assert inverse_alphabet_enumeration["00000"] == "#"
 
 
 states_enumeration, states_symbol_length = get_binary_enumeration(states_list)
 inverse_states_enumeration = {v: k for k, v in states_enumeration.items()}
-assert states_enumeration["q0"] == "000"
-assert inverse_states_enumeration["110"] == "#"
+assert states_enumeration["q0"] == "001"
+assert states_enumeration["qf"] == "110"
+assert inverse_states_enumeration["000"] == "#"
 
 words_enumeration, words_symbol_length = get_binary_enumeration(words_list)
 inverse_words_enumeration = {v: k for k, v in words_enumeration.items()}
@@ -112,8 +114,7 @@ def decode_lexicon(encoded_lexicon_string):
     words_list = lexicon_string[:-2].split('#')
     return words_list
 
-def get_encoded_lexicon_length(alphabet_list, words_list):
-    alphabet_symbol_length = get_binary_enumeration(alphabet_list)[1]
+def get_encoded_lexicon_length(alphabet_symbol_length, words_list):
     delimiter_usage = (len(words_list) + 1) * alphabet_symbol_length
     words_usage = sum([len(word) for word in words_list]) * alphabet_symbol_length
     num_bits = alphabet_symbol_length + 1
@@ -121,14 +122,37 @@ def get_encoded_lexicon_length(alphabet_list, words_list):
     return encoding_length
 
 encoded_lexicon_string = encode_lexicon(alphabet_list, words_list)
-encode_lexicon_length = get_encoded_lexicon_length(alphabet_list, words_list)
+encode_lexicon_length = get_encoded_lexicon_length(alphabet_symbol_length, words_list)
 
 
 assert encode_lexicon_length == 616
 assert len(encoded_lexicon_string) == encode_lexicon_length
 assert decode_lexicon(encoded_lexicon_string) == words_list
 
-##### Transitions #####
+##### Syntactic Component #####
+
+
+def get__encoded_syntactic_component_length():
+    pass
+
+def encode_syntactic_component(syntactic_component, states_list, words_list):
+    str_io = StringIO()
+    #transitions
+    states_enumeration, states_symbol_length = get_binary_enumeration(states_list)
+    print('0'*states_symbol_length + '1', end="", file=str_io)
+    for state in states_list:
+        if syntactic_component.get_outgoing_states(state):  # print only states with the have outgoing link i.e no qf
+            print(states_enumeration[state], end="", file=str_io)
+            for outgoing_state in syntactic_component.get_outgoing_states(state):
+                print(states_enumeration[outgoing_state], end="", file=str_io)
+            print(states_enumeration["#"], end="", file=str_io)
+
+    print(states_enumeration["#"], end="", file=str_io)
+    #emissions
+
+
+
+
 
 def encode_transitions(syntactic_component, states_list):     # with 0*1 prefix, ## ending
     str_io = StringIO()
@@ -197,9 +221,7 @@ assert encode_transitions_length == 55
 assert len(encoded_transitions_string) == encode_transitions_length
 assert decode_transitions(encoded_transitions_string) == mock_transition_dict
 
-##### Emissions #####
-                                                        #TODO remove prefix
-def encode_emissions(syntactic_component, states_list, words_list):     # with 0*1 prefix, no delimiter ending
+def encode_emissions(syntactic_component, states_list, words_list):     # with 0*1 prefix, ## ending
     str_io = StringIO()
     states_enumeration, states_symbol_length = get_binary_enumeration(states_list)
     words_enumeration, words_symbol_length = get_binary_enumeration(words_list)
@@ -210,8 +232,8 @@ def encode_emissions(syntactic_component, states_list, words_list):     # with 0
             for emission in syntactic_component.get_emissions(state):
                 print(words_enumeration[emission], end="", file=str_io)
             print(words_enumeration["#"], end="", file=str_io)
-
-    return str_io.getvalue()[:-len(words_enumeration["#"])]    # remove last delimiter
+    print(words_enumeration["#"], end="", file=str_io)
+    return str_io.getvalue()
 
 
 
@@ -220,7 +242,7 @@ def decode_emissions(encoded_emissions_string):
     first_one_index = encoded_emissions_string.index('1')
     encoded_emissions_string = encoded_emissions_string[first_one_index+1:]
     i = 0
-    while i < len(encoded_emissions_string):
+    while True:
         state_bits = encoded_emissions_string[i:i+states_symbol_length]
         i += states_symbol_length
         current_state = inverse_states_enumeration[state_bits]
@@ -233,22 +255,24 @@ def decode_emissions(encoded_emissions_string):
             else:
                 current_word = inverse_words_enumeration[word_bits]
                 emissions_dict[current_state].append(current_word)
-                if i == len(encoded_emissions_string):
-                    break
 
-
+        word_bits = encoded_emissions_string[i:i+words_symbol_length]
+        if inverse_words_enumeration[word_bits] == '#':
+            break
 
     return emissions_dict
 
 def get_encoded_emissions_length(syntactic_component, states_list, words_list):
 
-    return 133
+    return 143
 
 
 encoded_emissions_string = encode_emissions(syntactic_component, states_list, words_list)
 encode_emissions_length = get_encoded_emissions_length(syntactic_component, states_list, words_list)
 
-assert encode_emissions_length == 133
+
+print(len(encoded_emissions_string))
+assert encode_emissions_length == 143
 assert len(encoded_emissions_string) == encode_emissions_length
 assert decode_emissions(encoded_emissions_string) == mock_emission_dict
 
