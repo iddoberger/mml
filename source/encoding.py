@@ -64,7 +64,7 @@ def get_binary_enumeration(list_):
 
 
 def get_symbol_length(list_):
-    return ceil(log2(len(list_)))  # log2 1 sould be 1 in this case
+    return ceil(log2(len(list_)))
 
 
 def get_binary_string(number, log_length):
@@ -298,10 +298,12 @@ def encode_data_by_grammar(syntactic_component, data):   #no prefix, no delimite
     return str_io.getvalue()
 
 def decode_data(encoded_data_string):
-    def get_item_by_binary_with_truncate(list_, binary):
+    def get_item_by_binary_with_truncate(list_, full_binary_string):
         symbol_length = get_symbol_length(list_)
-        needed_binary = binary[0:symbol_length]
-        return list_[int(needed_binary, 2)], binary[symbol_length:]
+        if not symbol_length:
+            return list_[0], full_binary_string
+        needed_binary = full_binary_string[0:symbol_length]
+        return list_[int(needed_binary, 2)], full_binary_string[symbol_length:]
 
     data = []
     while True:
@@ -349,5 +351,5 @@ encoded_string = encode_data_by_grammar(syntactic_component, data)
 
 assert len(encoded_string) == 16
 assert get_encoded_data_by_grammar_length(syntactic_component, data) == len(encoded_string)
-#assert decode_data(encoded_string) == data
+assert decode_data(encoded_string) == data
 
