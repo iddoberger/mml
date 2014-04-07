@@ -19,6 +19,13 @@ hmm_dict = {'q0':  ['q2'],
             'q4': (['q1'], ['beautiful', 'big', 'handsome', 'nice', 'thin', 'thoughtful', 'ugly'])}
 
 
+simple_hmm_dict = {'q0': ['q1','q2'],
+                   'q1': (['q1','q2','qf'], ['the']),
+                   'q2': (['q1','q2','qf'], ['dog'])}
+
+simple_lexicon_list = ['the', 'dog']
+
+observation = 'thedogdog'
 
 class HMM:
     def __init__(self, hmm_dict):
@@ -27,8 +34,8 @@ class HMM:
         self.inner_states = hmm_dict_key_list
         initial_state_transitions = hmm_dict.pop(INITIAL_STATE)
 
-
         self.transitions = {k: v[0] for (k, v) in hmm_dict.items()}
+
         self.transitions[INITIAL_STATE] = initial_state_transitions
 
         self.emissions = {k: v[1] for (k, v) in hmm_dict.items()}
@@ -36,9 +43,35 @@ class HMM:
     def get_states(self):
         return [INITIAL_STATE] + self.inner_states + [FINAL_STATE]
 
+    def get_transition_probability(self, state, next_state):
+        state_transitions_list = self.transitions.get(state, [])
+        if next_state in state_transitions_list:
+            return 1/len(state_transitions_list)
+        else:
+            return 0
+
+    def get_emission_probability(self, state, emission_value):
+        state_emissions_list = self.emissions.get(state, [])
+        if emission_value in state_emissions_list:
+            return 1/len(state_emissions_list)
+        else:
+            return 0
+
+
+
+
+class Lexicon:
+    def __init__(self, entries_list):
+        self.entries = entries_list
+
+    def get_maximal_entry_length(self):
+        return max([len(entry) for entry in self.entries])
+
 
 
 hmm = HMM(hmm_dict)
+simple_hmm = HMM(simple_hmm_dict)
+simple_lexicon = Lexicon(simple_lexicon_list)
 
 
 
@@ -79,8 +112,7 @@ class _ViterbiPrefix:
 # b) each char of obs exists in H.lexicon.
 def viterbi(hmm, lexicon, observation):
     length_of_observation = len(observation)
-    all_states = hmm.states + [hmm.initial_state, hmm.final_state]
-    viterbi_table = {state: [{} for j in range(length_of_observation)] for state in all_states}     # Each cell hold dict of lexical entries
+    viterbi_table = {state: [{} for j in range(length_of_observation)] for state in hmm.get_states()}     # Each cell hold dict of lexical entries
 
     # Initialize the final cell
     final_cell = _ViterbiPrefix('', float("-inf"), length_of_observation)
@@ -89,14 +121,17 @@ def viterbi(hmm, lexicon, observation):
     seen_lengths = set()
 
     # Initialize the first column
-    for current_state in hmm.states:
+    for current_state in hmm.inner_states:
         for prefix in start_prefixes:
             # if initial prob or emission prob are 0, then the probability of printing this prefix is 0.
-            if hmm.initial_prob[current_state] == 0 or hmm.emission_prob[current_state][prefix] == 0:
+            if not hmm.get_transition_probability(INITIAL_STATE, current_state) or \
+               not hmm.get_emission_probability(current_state, prefix):
                 viterbi_table[current_state][0][prefix] = _ViterbiPrefix(prefix, 0, len(prefix))
             else:
-                viterbi_table[current_state][0][prefix] = _ViterbiPrefix(prefix, log(hmm.initial_prob[current_state]) + log(hmm.emission_prob[current_state][prefix]), len(prefix))
-            viterbi_table[current_state][0][prefix].set_back_pointer(hmm.initial_state, '', -1)
+                log_prob = log(hmm.get_transition_probability(INITIAL_STATE, current_state)) + \
+                           log(hmm.get_emission_probability(current_state, prefix))
+                viterbi_table[current_state][0][prefix] = _ViterbiPrefix(prefix, log_prob, len(prefix))
+            viterbi_table[current_state][0][prefix].set_back_pointer(INITIAL_STATE, '', -1)
 
             seen_lengths.add(viterbi_table[current_state][0][prefix].seen_length)
 
@@ -108,13 +143,14 @@ def viterbi(hmm, lexicon, observation):
         column_prefixes = get_lexical_prefixes(lexicon, observation, seen_lengths)
         seen_lengths.clear()
 
-        for current_state in hmm.states:
+        for current_state in hmm.inner_states:
             # fill the cell with the relevant prefixes
             for prefix in column_prefixes:
                 viterbi_table[current_state][observation_position][prefix] = _ViterbiPrefix(prefix, float("-inf"), -1)
 
+
             for current_prefix in list(viterbi_table[current_state][observation_position].values()):
-                for previous_state in hmm.states:
+                for previous_state in hmm.inner_states:
                     for previous_prefix in list(viterbi_table[previous_state][observation_position-1].values()):
 
                         total_chars = previous_prefix.seen_length
@@ -123,13 +159,20 @@ def viterbi(hmm, lexicon, observation):
                         # then update the probability.
                         if previous_prefix.prefix + current_prefix.prefix == \
                                 observation[total_chars - len(previous_prefix):total_chars + len(current_prefix)]:
-                            if not hmm.transition_prob[previous_state][current_state] == 0 and not hmm.emission_prob[current_state][current_prefix.prefix] == 0\
-                                and not previous_prefix.prob == 0:
-                                probability = previous_prefix.prob + log(hmm.transition_prob[previous_state][current_state]) + log(hmm.emission_prob[current_state][current_prefix.prefix])
+
+                            if hmm.get_transition_probability(previous_state, current_state) \
+                                    and hmm.get_emission_probability(current_state, current_prefix.prefix) \
+                                    and previous_prefix.prob:
+
+                                probability = previous_prefix.prob + \
+                                              log(hmm.get_transition_probability(previous_state, current_state)) + \
+                                              log(hmm.get_emission_probability(current_state, current_prefix.prefix))
+
                                 if current_prefix.prob < probability:
                                     current_prefix.prob = probability
                                     current_prefix.seen_length = (previous_prefix.seen_length + len(current_prefix))
-                                    current_prefix.set_back_pointer(previous_state, previous_prefix.prefix, observation_position-1)
+                                    current_prefix.set_back_pointer(previous_state, previous_prefix.prefix,
+                                                                    observation_position-1)
 
 
                 # Add the length seen so far, so that next iteration could easily find proper prefixes
@@ -137,8 +180,9 @@ def viterbi(hmm, lexicon, observation):
 
                 # In case we've seen all input data, update the final cell
                 if current_prefix.seen_length == length_of_observation:
-                    if not hmm.transition_prob[current_state][hmm.final_state] == 0:
-                        final_transition = current_prefix.prob + log(hmm.transition_prob[current_state][hmm.final_state])
+                    if hmm.get_transition_probability(current_state, FINAL_STATE):
+                        final_transition = current_prefix.prob + log(hmm.get_transition_probability(current_state,
+                                                                                                    FINAL_STATE))
 
                         if final_cell.prob < final_transition:
                             final_cell.prob = final_transition
@@ -156,10 +200,10 @@ def viterbi(hmm, lexicon, observation):
     current_column = final_cell.get_back_pointer_column()
 
     # Paths to follow
-    state_path = [hmm.final_state, current_state]
+    state_path = [FINAL_STATE, current_state]
     seg_path = [current_prefix]
-    prob_path = [hmm.transition_prob[current_state][hmm.final_state]]
-    emission_path = [hmm.emission_prob[current_state][current_prefix]]
+    prob_path = [hmm.get_transition_probability(current_state, FINAL_STATE)]
+    emission_path = [hmm.get_emission_probability(current_state, current_prefix)]
 
     while True:
         current_cell = viterbi_table[current_state][current_column][current_prefix]
@@ -169,17 +213,17 @@ def viterbi(hmm, lexicon, observation):
         current_prefix = current_cell.get_back_pointer_prefix()
         current_column = current_cell.get_back_pointer_column()
 
-        if current_state == hmm.initial_state:
-            state_path += [hmm.initial_state]
-            prob_path += [hmm.initial_prob[temp_state]]
+        if current_state == INITIAL_STATE:
+            state_path += [INITIAL_STATE]
+            prob_path += [hmm.get_transition_probability(INITIAL_STATE, temp_state)]
 
             break
 
         # Since we haven't reached the initial state yet, just add the relevant
         # information to the proper list.
         state_path += [current_state]
-        prob_path += [hmm.transition_prob[current_state][temp_state]]
-        emission_path += [hmm.emission_prob[current_state][current_prefix]]
+        prob_path += [hmm.get_transition_probability(current_state, temp_state)]
+        emission_path += [hmm.get_emission_probability(current_state,current_prefix)]
         seg_path += [current_prefix]
 
 
@@ -196,8 +240,7 @@ def viterbi(hmm, lexicon, observation):
 # from each one of the starting points (every element in the list is unique).
 def get_lexical_prefixes(lexicon, complete_observation, starting_positions):
     prefix_list = []
-    lex_entries = lexicon.get_entry_values()
-    longest_entry = lexicon.get_longest_entry()
+    longest_entry = lexicon.get_maximal_entry_length()
 
     for start_position in starting_positions:
         from_start_position_length = len(complete_observation) - start_position
@@ -206,7 +249,16 @@ def get_lexical_prefixes(lexicon, complete_observation, starting_positions):
 
         for i in range(1, len(truncated_observation)+1):
             current_prefix = truncated_observation[0:i]
-            if current_prefix in lex_entries and current_prefix not in prefix_list:
+            if current_prefix in lexicon.entries and current_prefix not in prefix_list:
                 prefix_list.append(current_prefix)
 
     return prefix_list
+
+
+viterbi_result = viterbi(simple_hmm, simple_lexicon, observation)
+
+states_path = viterbi_result[0]
+emissions_path = viterbi_result[3]
+
+print(states_path)
+print(emissions_path)
