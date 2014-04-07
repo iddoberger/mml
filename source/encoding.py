@@ -1,10 +1,10 @@
-from collections import OrderedDict,defaultdict
+from collections import OrderedDict
 from math import log2, ceil
 from io import StringIO
 from copy import copy
 
 
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock
 
 
 class SyntacticComponent():
@@ -15,12 +15,21 @@ alphabet_list = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'k', 'l', 'm', 'n'
 words_list = ['a', 'adore', 'all', 'beautiful', 'big', 'bit', 'chases', 'dog', 'handsome', 'like', 'mouse', 'nice', 'professor', 'some', 'student', 'taught', 'the', 'thin', 'thoughtful', 'ugly']
 states_list = ["q0", "q1", "q2", "q3", "q4", "qf"]
 
-mock_transition_dict = {'q0': ['q2'], 'q1': ['qf'], 'q2': ['q1', 'q4'], 'q3': ['q2'], 'q4': ['q1']}
+mock_transition_dict = {'q0': ['q2'], 'q1': ['qf'], 'q2': ['q1', 'q4'], 'q3': ['q2'], 'q4': ['q1'], 'qf': []}
+transition_dict_no_nulls = {'q0': ['q2'], 'q1': ['qf'], 'q2': ['q1', 'q4'], 'q3': ['q2'], 'q4': ['q1']}
 
-mock_emission_dict = {'q1': ['dog', 'mouse', 'professor', 'student'],
+mock_emission_dict = {'q0': [],
+                      'q1': ['dog', 'mouse', 'professor', 'student'],
                       'q2': ['a', 'all', 'some', 'the'],
                       'q3': ['adore', 'bit', 'chases', 'like', 'taught'],
-                      'q4': ['beautiful', 'big', 'handsome', 'nice', 'thin', 'thoughtful', 'ugly']}
+                      'q4': ['beautiful', 'big', 'handsome', 'nice', 'thin', 'thoughtful', 'ugly'],
+                      'qf': []}
+
+emission_dict_no_nulls = {'q1': ['dog', 'mouse', 'professor', 'student'],
+                          'q2': ['a', 'all', 'some', 'the'],
+                          'q3': ['adore', 'bit', 'chases', 'like', 'taught'],
+                          'q4': ['beautiful', 'big', 'handsome', 'nice', 'thin', 'thoughtful', 'ugly']}
+
 
 
 def mock_transition(arg):
@@ -222,15 +231,15 @@ def decode_syntactic_component(encoded_syntactic_component_string):
 
 def get_encoded_syntactic_component_length(syntactic_component, states_list, words_symbol_length):
     #transitions
-    state_symbols_in_strings = 0
+    state_symbols_in_transitions = 0
     states_with_outgoing = 0
     for state in states_list:
         if len(syntactic_component.get_outgoing_states(state)) > 0:
-            state_symbols_in_strings += len(syntactic_component.get_outgoing_states(state)) + 1  # +1 indicate the origin state
+            state_symbols_in_transitions += len(syntactic_component.get_outgoing_states(state)) + 1  # +1 indicate the origin state
             states_with_outgoing += 1
 
     delimiter_usage = states_symbol_length * (states_with_outgoing + 1)  # +1 indicate the final extra delimiter
-    states_usage = state_symbols_in_strings * states_symbol_length
+    states_usage = state_symbols_in_transitions * states_symbol_length
     num_bits = states_symbol_length + 1
     transition_length = num_bits + delimiter_usage + states_usage
 
@@ -240,8 +249,7 @@ def get_encoded_syntactic_component_length(syntactic_component, states_list, wor
     for state in states_list:
         if len(syntactic_component.get_emissions(state)) > 0:
             states_with_emissions += 1
-            for emission in syntactic_component.get_emissions(state):
-                num_of_emissions += 1
+            num_of_emissions += len(syntactic_component.get_emissions(state))
 
 
     delimiter_usage = (states_with_emissions + 1) * words_symbol_length   # +1 indicate the final extra delimiter
@@ -258,7 +266,7 @@ encoded_syntactic_component_length = get_encoded_syntactic_component_length(synt
 
 assert encoded_syntactic_component_length == 192
 assert len(encoded_syntactic_component_string) == encoded_syntactic_component_length
-assert decode_syntactic_component(encoded_syntactic_component_string) == (mock_transition_dict, mock_emission_dict)
+assert decode_syntactic_component(encoded_syntactic_component_string) == (transition_dict_no_nulls, emission_dict_no_nulls)
 
 
 
@@ -277,7 +285,7 @@ syntactic_component.parse = MagicMock(side_effect=mock_viterbi)
 def encode_data_by_grammar(syntactic_component, data):   #no prefix, no delimiter at all
     str_io = StringIO()
     for datum in data:
-        states_path, segmentation_path = syntactic_component.parse(datum)
+        states_path, emissions_path = syntactic_component.parse(datum)
         states_index = 0
         segmentation_index = 0
         while True:
@@ -290,7 +298,7 @@ def encode_data_by_grammar(syntactic_component, data):   #no prefix, no delimite
             if states_index >= len(states_path) - 1:
                 break
             emission_table = syntactic_component.get_emissions(next_state)
-            emission_value = segmentation_path[segmentation_index]
+            emission_value = emissions_path[segmentation_index]
             emission_binary = get_binary_by_item(emission_table, emission_value)
             print(emission_binary, end="", file=str_io)
             segmentation_index += 1
