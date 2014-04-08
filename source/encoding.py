@@ -231,6 +231,7 @@ def decode_syntactic_component(encoded_syntactic_component_string):
 
 def get_encoded_syntactic_component_length(syntactic_component, states_list, words_symbol_length):
     #transitions
+    states_symbol_length = get_symbol_length(states_list)
     state_symbols_in_transitions = 0
     states_with_outgoing = 0
     for state in states_list:
@@ -261,10 +262,30 @@ def get_encoded_syntactic_component_length(syntactic_component, states_list, wor
     return encoded_syntactic_component_length
 
 
+
+def get_encoded_syntactic_component_length_v2(syntactic_component, states_list, words_symbol_length):
+    states_symbol_length = get_symbol_length(states_list)
+    state_symbols_in_transitions = 0
+    num_of_emissions = 0
+    for state in states_list:
+        if len(syntactic_component.get_outgoing_states(state)) > 0:
+            state_symbols_in_transitions += len(syntactic_component.get_outgoing_states(state)) + 1  # +1 indicate the origin state
+            num_of_emissions += len(syntactic_component.get_emissions(state))
+
+    content_usage = (state_symbols_in_transitions * states_symbol_length) + (num_of_emissions * words_symbol_length)
+    delimiter_usage = (len(states_list) * words_symbol_length) + ((len(states_list) + 1) * states_symbol_length)
+    num_bits = states_symbol_length + 1
+    encoded_syntactic_component_length = num_bits + delimiter_usage + content_usage
+
+
+    return encoded_syntactic_component_length
+
+
 encoded_syntactic_component_string = encode_syntactic_component(syntactic_component, states_list, words_list)
 encoded_syntactic_component_length = get_encoded_syntactic_component_length(syntactic_component, states_list, words_symbol_length)
 
 assert encoded_syntactic_component_length == 192
+#print(get_encoded_syntactic_component_length_v2(syntactic_component, states_list, words_symbol_length))
 assert len(encoded_syntactic_component_string) == encoded_syntactic_component_length
 assert decode_syntactic_component(encoded_syntactic_component_string) == (transition_dict_no_nulls, emission_dict_no_nulls)
 
