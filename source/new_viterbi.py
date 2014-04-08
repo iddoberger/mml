@@ -94,16 +94,16 @@ class _ViterbiPrefix:
     def __str__(self):
         return self.prefix_string
 
-    def set_back_pointer(self, state, back_pointer_prefix, column):
-        self.back_pointer = [state, back_pointer_prefix, column]
+    def set_back_pointers(self, state, prefix_string, column):
+        self.back_pointer = [state, prefix_string, column]
 
-    def get_back_pointer_state(self):
+    def get_state_back_pointer(self):
         return self.back_pointer[0]
 
-    def get_back_pointer_prefix(self):
+    def get_prefix_back_pointer(self):
         return self.back_pointer[1]
 
-    def get_back_pointer_column(self):
+    def get_column_back_pointer(self):
         return self.back_pointer[2]
 
 
@@ -134,7 +134,7 @@ def viterbi(hmm, lexicon, observation):
                 log_prob = log(hmm.get_transition_probability(INITIAL_STATE, current_state)) + \
                            log(hmm.get_emission_probability(current_state, prefix))
                 viterbi_table[current_state][0][prefix] = _ViterbiPrefix(prefix, log_prob, len(prefix))
-            viterbi_table[current_state][0][prefix].set_back_pointer(INITIAL_STATE, '', -1)
+            viterbi_table[current_state][0][prefix].set_back_pointers(INITIAL_STATE, '', -1)
 
             seen_positions.add(viterbi_table[current_state][0][prefix].position_in_observation)
 
@@ -151,7 +151,7 @@ def viterbi(hmm, lexicon, observation):
             for prefix in column_prefixes:
                 viterbi_table[current_state][observation_position][prefix] = _ViterbiPrefix(prefix, float("-inf"), -1)
 
-            for current_viterbi_prefix in viterbi_table[current_state][observation_position].values():
+            for current_prefix in viterbi_table[current_state][observation_position].values():
                 for previous_state in hmm.inner_states:
                     for previous_viterbi_prefix in viterbi_table[previous_state][observation_position-1].values():
 
@@ -159,36 +159,36 @@ def viterbi(hmm, lexicon, observation):
 
                         # if the prev prefix and current prefix fit the data in the corresponding place,
                         # then update the probability.
-                        if str(previous_viterbi_prefix) + str(current_viterbi_prefix) == \
-                                observation[previous_position - len(previous_viterbi_prefix):previous_position + len(current_viterbi_prefix)]:
+                        if str(previous_viterbi_prefix) + str(current_prefix) == \
+                                observation[previous_position - len(previous_viterbi_prefix):previous_position + len(current_prefix)]:
 
                             if hmm.get_transition_probability(previous_state, current_state) \
-                                    and hmm.get_emission_probability(current_state, str(current_viterbi_prefix)) \
+                                    and hmm.get_emission_probability(current_state, str(current_prefix)) \
                                     and previous_viterbi_prefix.probability:
 
                                 probability = previous_viterbi_prefix.probability + \
                                               log(hmm.get_transition_probability(previous_state, current_state)) + \
-                                              log(hmm.get_emission_probability(current_state, str(current_viterbi_prefix)))
+                                              log(hmm.get_emission_probability(current_state, str(current_prefix)))
 
-                                if current_viterbi_prefix.probability < probability:
-                                    current_viterbi_prefix.probability = probability
-                                    current_viterbi_prefix.position_in_observation = (previous_viterbi_prefix.position_in_observation + len(current_viterbi_prefix))
-                                    current_viterbi_prefix.set_back_pointer(previous_state, str(previous_viterbi_prefix),
+                                if current_prefix.probability < probability:
+                                    current_prefix.probability = probability
+                                    current_prefix.position_in_observation = (previous_viterbi_prefix.position_in_observation + len(current_prefix))
+                                    current_prefix.set_back_pointers(previous_state, str(previous_viterbi_prefix),
                                                                     observation_position-1)
 
 
                 # Add the length seen so far, so that next iteration could easily find proper prefixes
-                seen_positions.add(current_viterbi_prefix.position_in_observation)
+                seen_positions.add(current_prefix.position_in_observation)
 
                 # In case we've seen all input data, update the final cell
-                if current_viterbi_prefix.position_in_observation == observation_length:
+                if current_prefix.position_in_observation == observation_length:
                     if hmm.get_transition_probability(current_state, FINAL_STATE):
-                        final_transition = current_viterbi_prefix.probability + log(hmm.get_transition_probability(current_state,
+                        final_transition = current_prefix.probability + log(hmm.get_transition_probability(current_state,
                                                                                                     FINAL_STATE))
 
                         if final_cell.probability < final_transition:
                             final_cell.probability = final_transition
-                            final_cell.set_back_pointer(current_state, str(current_viterbi_prefix), observation_position)
+                            final_cell.set_back_pointers(current_state, str(current_prefix), observation_position)
 
 
 
@@ -197,23 +197,23 @@ def viterbi(hmm, lexicon, observation):
 
 
     # Follow backpointers to find the best path
-    current_state = final_cell.get_back_pointer_state()
-    current_viterbi_prefix = final_cell.get_back_pointer_prefix()
-    current_column = final_cell.get_back_pointer_column()
+    current_state = final_cell.get_state_back_pointer()
+    current_prefix = final_cell.get_prefix_back_pointer()
+    current_column = final_cell.get_column_back_pointer()
 
     # Paths to follow
     state_path = [FINAL_STATE, current_state]
-    seg_path = [current_viterbi_prefix]
+    seg_path = [current_prefix]
     prob_path = [hmm.get_transition_probability(current_state, FINAL_STATE)]
-    emission_path = [hmm.get_emission_probability(current_state, current_viterbi_prefix)]
+    emission_path = [hmm.get_emission_probability(current_state, current_prefix)]
 
     while True:
-        current_cell = viterbi_table[current_state][current_column][current_viterbi_prefix]
+        current_cell = viterbi_table[current_state][current_column][current_prefix]
         temp_state = current_state  # for probability path
 
-        current_state = current_cell.get_back_pointer_state()
-        current_viterbi_prefix = current_cell.get_back_pointer_prefix()
-        current_column = current_cell.get_back_pointer_column()
+        current_state = current_cell.get_state_back_pointer()
+        current_prefix = current_cell.get_prefix_back_pointer()
+        current_column = current_cell.get_column_back_pointer()
 
         if current_state == INITIAL_STATE:
             state_path += [INITIAL_STATE]
@@ -225,8 +225,8 @@ def viterbi(hmm, lexicon, observation):
         # information to the proper list.
         state_path += [current_state]
         prob_path += [hmm.get_transition_probability(current_state, temp_state)]
-        emission_path += [hmm.get_emission_probability(current_state, current_viterbi_prefix)]
-        seg_path += [current_viterbi_prefix]
+        emission_path += [hmm.get_emission_probability(current_state, current_prefix)]
+        seg_path += [current_prefix]
 
 
     state_path.reverse()
