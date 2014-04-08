@@ -9,10 +9,7 @@ def get_segments_from_data(data):
         segments_set |= set(datum)
     return sorted(list(segments_set))
 
-def print_hypothesis_data(hypothesis_name, hmm, lexicon, data):
-    print(hypothesis_name)
-    data_by_grammar_length = get_encoded_data_by_grammar_length(hmm, lexicon, data, viterbi)
-    print("data by grammar length: {}".format(data_by_grammar_length))
+
 
 
 pabiku_data = ['golatutibudopabikudaropidaropipabikupabikudaropipabiku',
@@ -37,11 +34,27 @@ pabiku_segments = get_segments_from_data(pabiku_data)
 assert pabiku_segments == ['a', 'b', 'd', 'g', 'i', 'k', 'l', 'o', 'p', 'r', 't', 'u']
 
 
+
+def print_hypothesis_data(hypothesis_name, hmm, lexicon, data):
+    print('*'*6 + hypothesis_name+ '*'*6)
+    lexicon_length = get_encoded_lexicon_length(get_symbol_length(pabiku_segments), lexicon.entries)
+    hmm_length = get_encoded_syntactic_component_length(hmm, hmm.get_states(), get_symbol_length(lexicon.entries))
+    data_by_grammar_length = get_encoded_data_by_grammar_length(hmm, lexicon, data, viterbi)
+    total_length = lexicon_length + hmm_length + data_by_grammar_length
+
+    print("lexicon length: {}".format(lexicon_length))
+    print("hmm length: {}".format(hmm_length))
+    print("data by grammar length: {}".format(data_by_grammar_length))
+    print("total length: {}".format(total_length))
+
+
+
 #naive
 pabiku_naive_hmm = HMM({INITIAL_STATE: ['q1'],
                         'q1': ([FINAL_STATE, 'q1'], pabiku_segments)})
 pabiku_naive_lexicon = Lexicon(pabiku_segments)
 print_hypothesis_data('pabiku naive', pabiku_naive_hmm, pabiku_naive_lexicon, pabiku_data)
+
 
 #target
 pabiku_target_hmm = HMM({INITIAL_STATE: ['q1'],

@@ -59,10 +59,10 @@ class HMM:
             return 0
 
     def get_outgoing_states(self, state):
-        return self.transitions[state]
+        return self.transitions.get(state, [])
 
     def get_emissions(self, state):
-        return self.emissions[state]
+        return self.emissions.get(state, [])
 
 
 
