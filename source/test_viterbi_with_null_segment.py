@@ -1,89 +1,6 @@
+from new_viterbi import HMM, Lexicon, INITIAL_STATE, FINAL_STATE, NULL_SEGMENT, USE_NULL_SEGMENT
 from math import log
 from collections import namedtuple
-
-USE_NULL_SEGMENT = True
-
-NULL_SEGMENT = ''
-
-INITIAL_STATE = 'q0'
-FINAL_STATE = 'qf'
-
-
-#hmm_dict: the inner states has a tuple (transitions_list, emissions_list),  INITIAL_STATE has only transitions_list,
-#and FINAL_STATE is not there
-
-
-hmm_dict = {'q0':  ['q2'],
-            'q1': (['qf'], ['dog', 'mouse', 'professor', 'student']),
-            'q2': (['q1', 'q4'], ['a', 'all', 'some', 'the']),
-            'q3': (['q2'], ['adore', 'bit', 'chases', 'like', 'taught']),
-            'q4': (['q1'], ['beautiful', 'big', 'handsome', 'nice', 'thin', 'thoughtful', 'ugly'])}
-
-
-simple_hmm_dict = {'q0': ['q1', 'q2'],
-                   'q1': (['q1', 'q2', 'qf'], ['the']),
-                   'q2': (['q1', 'q2', 'qf'], ['dog'])}
-
-simple_lexicon_list = ['the', 'dog']
-
-observation = 'thedogdog'
-
-class HMM:
-    def __init__(self, hmm_dict):
-        hmm_dict_key_list = list(hmm_dict.keys())
-        hmm_dict_key_list.remove(INITIAL_STATE)
-        self.inner_states = hmm_dict_key_list
-        initial_state_transitions = hmm_dict.pop(INITIAL_STATE)
-
-        self.transitions = {k: v[0] for (k, v) in hmm_dict.items()}
-
-        self.transitions[INITIAL_STATE] = initial_state_transitions
-
-        self.emissions = {k: v[1] for (k, v) in hmm_dict.items()}
-
-    def get_states(self):
-        return [INITIAL_STATE] + self.inner_states + [FINAL_STATE]
-
-    def get_transition_probability(self, state, next_state):
-        return self.get_probability_by_dict(self.transitions, state, next_state)
-
-    def get_emission_probability(self, state, emission_value):
-        return self.get_probability_by_dict(self.emissions, state, emission_value)
-
-    @staticmethod
-    def get_probability_by_dict(states_values_dict, state, value):
-        state_values_list = states_values_dict.get(state, [])
-        if value in state_values_list:
-            return 1/len(state_values_list)
-        else:
-            return 0
-
-    def get_outgoing_states(self, state):
-        return self.transitions.get(state, [])
-
-    def get_emissions(self, state):
-        return self.emissions.get(state, [])
-
-
-
-
-class Lexicon:
-    def __init__(self, entries_list):
-        self.entries = entries_list
-
-    def get_maximal_entry_length(self):
-        return max([len(entry) for entry in self.entries])
-
-
-
-hmm = HMM(hmm_dict)
-simple_hmm = HMM(simple_hmm_dict)
-simple_lexicon = Lexicon(simple_lexicon_list)
-
-
-
-
-
 
 # A Viterbi prefix, that holds information regarding a prefix of data (for inner usage).
 # Each Viterbi cell in the viterbi_seg algorithm hold a dictionary of such prefixes.
@@ -128,12 +45,12 @@ def viterbi(hmm, lexicon, observation):
     # Initialize the final cell
     final_cell = _ViterbiPrefix('', float("-inf"), observation_length)
 
-    initial_prefixes = get_lexical_prefixes(lexicon, observation, [0])
+    initial_prefix_strings = get_lexical_prefixes(lexicon, observation, [0])   # maybe get only emission availabe to the states
     seen_positions = set()
 
     # Initialize the first column
     for current_state in hmm.inner_states:
-        for prefix_string in initial_prefixes:
+        for prefix_string in initial_prefix_strings:
             # if initial prob or emission prob are 0, then the probability of printing this prefix is 0.
             if not hmm.get_transition_probability(INITIAL_STATE, current_state) or \
                not hmm.get_emission_probability(current_state, prefix_string):
@@ -153,12 +70,12 @@ def viterbi(hmm, lexicon, observation):
     # (we can always compose the data out of basic lexical elements)
     for observation_position in range(1, observation_length):
         # find cell prefixes
-        column_prefixes = get_lexical_prefixes(lexicon, observation, seen_positions)
+        column_prefix_strings = get_lexical_prefixes(lexicon, observation, seen_positions)
         seen_positions.clear()
 
         for current_state in hmm.inner_states:
             # fill the cell with the relevant prefixes
-            for prefix_string in column_prefixes:
+            for prefix_string in column_prefix_strings:
                 viterbi_table[current_state][observation_position][prefix_string] = _ViterbiPrefix(prefix_string,
                                                                                                    float("-inf"), -1)
 
@@ -172,6 +89,7 @@ def viterbi(hmm, lexicon, observation):
                         combined_prefixes = str(previous_viterbi_prefix) + str(current_viterbi_prefix)
                         start_index = previous_position - len(previous_viterbi_prefix)
                         end_index = previous_position + len(current_viterbi_prefix)
+                        #print(observation[start_index:end_index])
                         if combined_prefixes == observation[start_index:end_index]:
                             if hmm.get_transition_probability(previous_state, current_state) \
                                     and hmm.get_emission_probability(current_state, str(current_viterbi_prefix)) \
@@ -246,17 +164,13 @@ def get_lexical_prefixes(lexicon, complete_observation, starting_positions):
             if current_prefix in lexicon.entries and current_prefix not in prefix_list:
                 prefix_list.append(current_prefix)
 
-    if NULL_SEGMENT in lexicon.entries:   # support in null segment
+    if NULL_SEGMENT in lexicon.entries:
         prefix_list.append(NULL_SEGMENT)
 
     return prefix_list
 
 
-viterbi_result = viterbi(simple_hmm, simple_lexicon, observation)
 
-
-assert viterbi_result.states_path == ['q0', 'q1', 'q2', 'q2', 'qf']
-assert viterbi_result.emissions_path == ['the', 'dog', 'dog']
 
 ##############
 
