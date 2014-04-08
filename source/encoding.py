@@ -149,121 +149,10 @@ assert decode_lexicon(encoded_lexicon_string) == words_list
 
 ##### Syntactic Component #####
 
-def encode_syntactic_component(syntactic_component, states_list, words_list):  # with 0*1 prefix,
-    str_io = StringIO()                                                        # double state's # after transitions
-    #transitions                                                               # double word's #  at ending (after emissions)
-    states_enumeration, states_symbol_length = get_binary_enumeration(states_list)
-    print('0'*states_symbol_length + '1', end="", file=str_io)
-    for state in states_list:
-        if syntactic_component.get_outgoing_states(state):  # print only states with the have outgoing link i.e no qf
-            print(states_enumeration[state], end="", file=str_io)
-            for outgoing_state in syntactic_component.get_outgoing_states(state):
-                print(states_enumeration[outgoing_state], end="", file=str_io)
-            print(states_enumeration["#"], end="", file=str_io)
 
-    print(states_enumeration["#"], end="", file=str_io)
-    #emissions
-    words_enumeration, words_symbol_length = get_binary_enumeration(words_list)
-    for state in states_list:
-        if syntactic_component.get_emissions(state):  # print only states with emissions
-            print(states_enumeration[state], end="", file=str_io)
-            for emission in syntactic_component.get_emissions(state):
-                print(words_enumeration[emission], end="", file=str_io)
-            print(words_enumeration["#"], end="", file=str_io)
-    print(words_enumeration["#"], end="", file=str_io)
-    return str_io.getvalue()
-
-
-def decode_syntactic_component(encoded_syntactic_component_string):
-    first_one_index = encoded_syntactic_component_string.index('1')
-    number_of_repr_bits = first_one_index
-    encoded_transitions_string = encoded_syntactic_component_string[first_one_index+1:]
-    #transitions
-    transitions_dict = dict()
-    transitions_lists = []
-    i = 0
-    while True:
-        bits = encoded_transitions_string[i:i+number_of_repr_bits]
-        i += number_of_repr_bits
-        transitions_lists.append(inverse_states_enumeration[bits])
-        if transitions_lists[-2:] == ['#', '#']:
-            i += number_of_repr_bits
-            break
-
-    temp_list = []
-    transitions_lists = transitions_lists[:-1]
-    while '#' in transitions_lists:
-        delimiter_index = transitions_lists.index('#')
-        temp_list.append(transitions_lists[:delimiter_index])
-        transitions_lists = transitions_lists[delimiter_index+1:]
-
-    transitions_lists = temp_list
-
-    for transitions in transitions_lists:
-        transitions_dict[transitions[0]] = list()
-        transitions_dict[transitions[0]].extend(transitions[1:])
-
-    encoded_syntactic_component_string = encoded_syntactic_component_string[i+1:]
-
-    #emissons
-    emissions_dict = dict()
-    i = 0
-    while True:
-        state_bits = encoded_syntactic_component_string[i:i+states_symbol_length]
-        i += states_symbol_length
-        current_state = inverse_states_enumeration[state_bits]
-        emissions_dict[current_state] = list()
-        while True:
-            word_bits = encoded_syntactic_component_string[i:i+words_symbol_length]
-            i += words_symbol_length
-            if inverse_words_enumeration[word_bits] == '#':
-                break
-            else:
-                current_word = inverse_words_enumeration[word_bits]
-                emissions_dict[current_state].append(current_word)
-
-        word_bits = encoded_syntactic_component_string[i:i+words_symbol_length]
-        if inverse_words_enumeration[word_bits] == '#':
-            break
-
-    return transitions_dict, emissions_dict
 
 
 def get_encoded_syntactic_component_length(syntactic_component, states_list, words_symbol_length):
-    #transitions
-    states_symbol_length = get_symbol_length(states_list)
-    state_symbols_in_transitions = 0
-    states_with_outgoing = 0
-    for state in states_list:
-        if len(syntactic_component.get_outgoing_states(state)) > 0:
-            state_symbols_in_transitions += len(syntactic_component.get_outgoing_states(state)) + 1  # +1 indicate the origin state
-            states_with_outgoing += 1
-
-    delimiter_usage = states_symbol_length * (states_with_outgoing + 1)  # +1 indicate the final extra delimiter
-    states_usage = state_symbols_in_transitions * states_symbol_length
-    num_bits = states_symbol_length + 1
-    transition_length = num_bits + delimiter_usage + states_usage
-
-    #emissions
-    num_of_emissions = 0
-    states_with_emissions = 0
-    for state in states_list:
-        if len(syntactic_component.get_emissions(state)) > 0:
-            states_with_emissions += 1
-            num_of_emissions += len(syntactic_component.get_emissions(state))
-
-
-    delimiter_usage = (states_with_emissions + 1) * words_symbol_length   # +1 indicate the final extra delimiter
-    emission_usage = states_with_emissions * states_symbol_length + (words_symbol_length * num_of_emissions)
-    emissions_length = delimiter_usage + emission_usage
-
-    encoded_syntactic_component_length = transition_length + emissions_length
-
-    return encoded_syntactic_component_length
-
-
-
-def get_encoded_syntactic_component_length_v2(syntactic_component, states_list, words_symbol_length):
     states_symbol_length = get_symbol_length(states_list)
     state_symbols_in_transitions = 0
     num_of_emissions = 0
@@ -281,15 +170,10 @@ def get_encoded_syntactic_component_length_v2(syntactic_component, states_list, 
     return encoded_syntactic_component_length
 
 
-encoded_syntactic_component_string = encode_syntactic_component(syntactic_component, states_list, words_list)
+
 encoded_syntactic_component_length = get_encoded_syntactic_component_length(syntactic_component, states_list, words_symbol_length)
 
-assert encoded_syntactic_component_length == 192
-#print(get_encoded_syntactic_component_length_v2(syntactic_component, states_list, words_symbol_length))
-assert len(encoded_syntactic_component_string) == encoded_syntactic_component_length
-assert decode_syntactic_component(encoded_syntactic_component_string) == (transition_dict_no_nulls, emission_dict_no_nulls)
-
-
+assert encoded_syntactic_component_length == 188
 
 
 ##### Data by Grammar #####
@@ -385,4 +269,120 @@ encoded_string = encode_data_by_grammar(syntactic_component, words_list, data, v
 assert len(encoded_string) == 16
 assert get_encoded_data_by_grammar_length(syntactic_component, words_list, data, viterbi) == len(encoded_string)
 assert decode_data(encoded_string) == data
+
+
+# def encode_syntactic_component(syntactic_component, states_list, words_list):  # with 0*1 prefix,
+#     str_io = StringIO()                                                        # double state's # after transitions
+#     #transitions                                                               # double word's #  at ending (after emissions)
+#     states_enumeration, states_symbol_length = get_binary_enumeration(states_list)
+#     print('0'*states_symbol_length + '1', end="", file=str_io)
+#     for state in states_list:
+#         if syntactic_component.get_outgoing_states(state):  # print only states with the have outgoing link i.e no qf
+#             print(states_enumeration[state], end="", file=str_io)
+#             for outgoing_state in syntactic_component.get_outgoing_states(state):
+#                 print(states_enumeration[outgoing_state], end="", file=str_io)
+#             print(states_enumeration["#"], end="", file=str_io)
+#
+#     print(states_enumeration["#"], end="", file=str_io)
+#     #emissions
+#     words_enumeration, words_symbol_length = get_binary_enumeration(words_list)
+#     for state in states_list:
+#         if syntactic_component.get_emissions(state):  # print only states with emissions
+#             print(states_enumeration[state], end="", file=str_io)
+#             for emission in syntactic_component.get_emissions(state):
+#                 print(words_enumeration[emission], end="", file=str_io)
+#             print(words_enumeration["#"], end="", file=str_io)
+#     print(words_enumeration["#"], end="", file=str_io)
+#     return str_io.getvalue()
+#
+#
+# def decode_syntactic_component(encoded_syntactic_component_string):
+#     first_one_index = encoded_syntactic_component_string.index('1')
+#     number_of_repr_bits = first_one_index
+#     encoded_transitions_string = encoded_syntactic_component_string[first_one_index+1:]
+#     #transitions
+#     transitions_dict = dict()
+#     transitions_lists = []
+#     i = 0
+#     while True:
+#         bits = encoded_transitions_string[i:i+number_of_repr_bits]
+#         i += number_of_repr_bits
+#         transitions_lists.append(inverse_states_enumeration[bits])
+#         if transitions_lists[-2:] == ['#', '#']:
+#             i += number_of_repr_bits
+#             break
+#
+#     temp_list = []
+#     transitions_lists = transitions_lists[:-1]
+#     while '#' in transitions_lists:
+#         delimiter_index = transitions_lists.index('#')
+#         temp_list.append(transitions_lists[:delimiter_index])
+#         transitions_lists = transitions_lists[delimiter_index+1:]
+#
+#     transitions_lists = temp_list
+#
+#     for transitions in transitions_lists:
+#         transitions_dict[transitions[0]] = list()
+#         transitions_dict[transitions[0]].extend(transitions[1:])
+#
+#     encoded_syntactic_component_string = encoded_syntactic_component_string[i+1:]
+#
+#     #emissons
+#     emissions_dict = dict()
+#     i = 0
+#     while True:
+#         state_bits = encoded_syntactic_component_string[i:i+states_symbol_length]
+#         i += states_symbol_length
+#         current_state = inverse_states_enumeration[state_bits]
+#         emissions_dict[current_state] = list()
+#         while True:
+#             word_bits = encoded_syntactic_component_string[i:i+words_symbol_length]
+#             i += words_symbol_length
+#             if inverse_words_enumeration[word_bits] == '#':
+#                 break
+#             else:
+#                 current_word = inverse_words_enumeration[word_bits]
+#                 emissions_dict[current_state].append(current_word)
+#
+#         word_bits = encoded_syntactic_component_string[i:i+words_symbol_length]
+#         if inverse_words_enumeration[word_bits] == '#':
+#             break
+#
+#     return transitions_dict, emissions_dict
+#
+#
+# def get_encoded_syntactic_component_length(syntactic_component, states_list, words_symbol_length):
+#     #transitions
+#     states_symbol_length = get_symbol_length(states_list)
+#     state_symbols_in_transitions = 0
+#     states_with_outgoing = 0
+#     for state in states_list:
+#         if len(syntactic_component.get_outgoing_states(state)) > 0:
+#             state_symbols_in_transitions += len(syntactic_component.get_outgoing_states(state)) + 1  # +1 indicate the origin state
+#             states_with_outgoing += 1
+#
+#     delimiter_usage = states_symbol_length * (states_with_outgoing + 1)  # +1 indicate the final extra delimiter
+#     states_usage = state_symbols_in_transitions * states_symbol_length
+#     num_bits = states_symbol_length + 1
+#     transition_length = num_bits + delimiter_usage + states_usage
+#
+#     #emissions
+#     num_of_emissions = 0
+#     states_with_emissions = 0
+#     for state in states_list:
+#         if len(syntactic_component.get_emissions(state)) > 0:
+#             states_with_emissions += 1
+#             num_of_emissions += len(syntactic_component.get_emissions(state))
+#
+#
+#     delimiter_usage = (states_with_emissions + 1) * words_symbol_length   # +1 indicate the final extra delimiter
+#     emission_usage = states_with_emissions * states_symbol_length + (words_symbol_length * num_of_emissions)
+#     emissions_length = delimiter_usage + emission_usage
+#
+#     encoded_syntactic_component_length = transition_length + emissions_length
+#
+#     return encoded_syntactic_component_length
+# encoded_syntactic_component_string = encode_syntactic_component(syntactic_component, states_list, words_list)
+# assert len(encoded_syntactic_component_string) == encoded_syntactic_component_length
+# assert decode_syntactic_component(encoded_syntactic_component_string) == (transition_dict_no_nulls, emission_dict_no_nulls)
 

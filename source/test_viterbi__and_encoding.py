@@ -1,6 +1,6 @@
 from encoding import get_encoded_lexicon_length, \
                      get_encoded_data_by_grammar_length, get_symbol_length
-from encoding import get_encoded_syntactic_component_length_v2 as get_encoded_syntactic_component_length
+from encoding import get_encoded_syntactic_component_length
 
 from new_viterbi import HMM, Lexicon, INITIAL_STATE, FINAL_STATE, viterbi
 
