@@ -277,15 +277,15 @@ data = ["athindog","theuglymouse"]
 mock_viterbi_dict = {"athindog": (['q0', 'q2', 'q4', 'q1', 'qf'],['a', 'thin', 'dog']),
                      "theuglymouse": (['q0', 'q2', 'q4', 'q1', 'qf'], ['the', 'ugly', 'mouse'])}
 
-def mock_viterbi(arg):
-    return mock_viterbi_dict[arg]
+def mock_viterbi(syntactic_component, lexicon, datum):
+    return mock_viterbi_dict[datum]
 
 viterbi = MagicMock(side_effect=mock_viterbi)
 
-def encode_data_by_grammar(syntactic_component, data, viterbi):   #no prefix, no delimiter at all
+def encode_data_by_grammar(syntactic_component, lexicon, data, viterbi):   #no prefix, no delimiter at all
     str_io = StringIO()
     for datum in data:
-        states_path, emissions_path = viterbi(datum)
+        states_path, emissions_path = viterbi(syntactic_component, lexicon, datum)
         states_index = 0
         segmentation_index = 0
         while True:
@@ -335,29 +335,33 @@ def decode_data(encoded_data_string):
 
 
 
-def get_encoded_data_by_grammar_length(syntactic_component, data, viterbi):
+def get_encoded_data_by_grammar_length(syntactic_component, lexicon, data, viterbi):
     data_by_grammar_length = 0
     for datum in data:
-        viterbi_path, seg = viterbi(datum)
+        viterbi_result = viterbi(syntactic_component, lexicon, datum)
+        if not viterbi_result:
+            return float("-INF")
+        else:
+            viterbi_path = viterbi_result[0]
         viterbi_index = 0
         current_state = viterbi_path[viterbi_index]
         while True:
-            transition_table = syntactic_component.get_outgoing_states(current_state)
-            data_by_grammar_length += get_symbol_length(transition_table)
+            transitions_list = syntactic_component.get_outgoing_states(current_state)
+            data_by_grammar_length += get_symbol_length(transitions_list)
             viterbi_index += 1
             current_state = viterbi_path[viterbi_index]
             if viterbi_index >= len(viterbi_path) - 1:
                break
-            emission_table = syntactic_component.get_emissions(current_state)
-            data_by_grammar_length += get_symbol_length(emission_table)
+            emissions_list = syntactic_component.get_emissions(current_state)
+            data_by_grammar_length += get_symbol_length(emissions_list)
 
     return data_by_grammar_length
 
 
-encoded_string = encode_data_by_grammar(syntactic_component, data, viterbi)
+encoded_string = encode_data_by_grammar(syntactic_component, words_list, data, viterbi)
 
 
 assert len(encoded_string) == 16
-assert get_encoded_data_by_grammar_length(syntactic_component, data, viterbi) == len(encoded_string)
+assert get_encoded_data_by_grammar_length(syntactic_component, words_list, data, viterbi) == len(encoded_string)
 assert decode_data(encoded_string) == data
 

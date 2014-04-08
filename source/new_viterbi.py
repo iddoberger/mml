@@ -58,6 +58,11 @@ class HMM:
         else:
             return 0
 
+    def get_outgoing_states(self, state):
+        return self.transitions[state]
+
+    def get_emissions(self, state):
+        return self.emissions[state]
 
 
 
@@ -196,7 +201,7 @@ def viterbi(hmm, lexicon, observation):
                             final_cell.set_back_pointers(current_state, str(current_viterbi_prefix), observation_position)
 
     if final_cell.probability == float("-inf"):
-        return float("-inf"), float("-inf"), float("-inf"), float("-inf")
+        return None
 
     # Follow back pointers to find the best path
     current_state = final_cell.get_state_back_pointer()
