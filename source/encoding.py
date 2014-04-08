@@ -280,12 +280,12 @@ mock_viterbi_dict = {"athindog": (['q0', 'q2', 'q4', 'q1', 'qf'],['a', 'thin', '
 def mock_viterbi(arg):
     return mock_viterbi_dict[arg]
 
-syntactic_component.parse = MagicMock(side_effect=mock_viterbi)
+viterbi = MagicMock(side_effect=mock_viterbi)
 
-def encode_data_by_grammar(syntactic_component, data):   #no prefix, no delimiter at all
+def encode_data_by_grammar(syntactic_component, data, viterbi):   #no prefix, no delimiter at all
     str_io = StringIO()
     for datum in data:
-        states_path, emissions_path = syntactic_component.parse(datum)
+        states_path, emissions_path = viterbi(datum)
         states_index = 0
         segmentation_index = 0
         while True:
@@ -335,10 +335,10 @@ def decode_data(encoded_data_string):
 
 
 
-def get_encoded_data_by_grammar_length(syntactic_component, data):
+def get_encoded_data_by_grammar_length(syntactic_component, data, viterbi):
     data_by_grammar_length = 0
     for datum in data:
-        viterbi_path, seg = syntactic_component.parse(datum)
+        viterbi_path, seg = viterbi(datum)
         viterbi_index = 0
         current_state = viterbi_path[viterbi_index]
         while True:
@@ -354,10 +354,10 @@ def get_encoded_data_by_grammar_length(syntactic_component, data):
     return data_by_grammar_length
 
 
-encoded_string = encode_data_by_grammar(syntactic_component, data)
+encoded_string = encode_data_by_grammar(syntactic_component, data, viterbi)
 
 
 assert len(encoded_string) == 16
-assert get_encoded_data_by_grammar_length(syntactic_component, data) == len(encoded_string)
+assert get_encoded_data_by_grammar_length(syntactic_component, data, viterbi) == len(encoded_string)
 assert decode_data(encoded_string) == data
 
